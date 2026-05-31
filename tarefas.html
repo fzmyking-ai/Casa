@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tarefas da Casa</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --bg-color: #121212;
+            --surface-color: #1e1e1e;
+            --primary-color: #bb86fc;
+            --secondary-color: #03dac6;
+            --tarefas-color: #03dac6; /* Cor temática dessa tela */
+            --error-color: #cf6679;
+            --text-color: #e1e1e1;
+            --text-muted: #888888;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            padding-bottom: 90px;
+        }
+
+        header {
+            background-color: var(--surface-color);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        header h1 {
+            font-size: 1.2rem;
+            color: var(--tarefas-color);
+            text-align: center;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .house-subtitle {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .header-btn {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 5px;
+            transition: color 0.2s;
+        }
+
+        .header-btn:hover { color: var(--tarefas-color); }
+
+        .container {
+            padding: 15px;
+            max-width: 600px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Sessão de cada Membro */
+        .member-section {
+            background-color: transparent;
+            animation: slideIn 0.3s ease-out forwards;
+        }
+
+        .member-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.1rem;
+            color: var(--primary-color);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 8px;
+            margin-bottom: 10px;
+        }
+
+        .task-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .task-card {
+            background-color: var(--surface-color);
+            border-radius: 12px;
+            padding: 12px 15px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transition: transform 0.2s, opacity 0.3s;
+            border-left: 4px solid var(--tarefas-color);
+        }
+
+        .task-card.completed {
+            opacity: 0.5;
+            border-left-color: var(--text-muted);
+        }
+
+        .task-card.completed .task-name {
+            text-decoration: line-through;
+            color: var(--text-muted);
+        }
+
+        /* Custom Checkbox Nativão */
+        .task-checkbox {
+            width: 22px;
+            height: 22px;
+            margin-right: 15px;
+            accent-color: var(--tarefas-color);
+            cursor: pointer;
+        }
+
+        .task-info {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+        }
+
+        .task-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .task-meta {
+            display: flex;
+            gap: 6px;
+            margin-top: 5px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            background-color: rgba(3, 218, 198, 0.15);
+            color: var(--tarefas-color);
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        
+        .badge.unica {
+            background-color: rgba(207, 102, 121, 0.15);
+            color: var(--error-color);
+        }
+
+        .btn-delete-task {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            cursor: pointer;
+            padding: 5px;
+            transition: color 0.2s;
+        }
+
+        .btn-delete-task:hover { color: var(--error-color); }
+
+        .bottom-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 15px;
+            background: linear-gradient(transparent, rgba(18, 18, 18, 0.9) 30%);
+            display: flex;
+            justify-content: center;
+            pointer-events: none;
+        }
+
+        .fab {
+            pointer-events: auto;
+            background-color: var(--tarefas-color);
+            color: #000;
+            border: none;
+            border-radius: 30px;
+            padding: 15px 25px;
+            font-size: 1rem;
+            font-weight: bold;
+            box-shadow: 0 4px 10px rgba(3, 218, 198, 0.4);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: transform 0.1s, background-color 0.3s;
+        }
+
+        .fab:active { transform: scale(0.95); }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Estilos pro Modal do SweetAlert2 */
+        .swal2-popup {
+            background: var(--surface-color) !important;
+            color: var(--text-color) !important;
+            border-radius: 15px !important;
+        }
+        .swal2-input, .swal2-select {
+            color: var(--text-color) !important;
+            background: var(--bg-color) !important;
+            border: 1px solid #333 !important;
+        }
+        .swal2-input::placeholder { color: var(--text-muted); }
+        
+        /* Grid de dias da semana Nativos */
+        .days-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+            padding: 10px;
+            background: var(--bg-color);
+            border-radius: 8px;
+            text-align: left;
+        }
+        .days-grid label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.9rem;
+            color: var(--text-color);
+            cursor: pointer;
+        }
+        .days-grid input[type="checkbox"] {
+            accent-color: var(--tarefas-color);
+            width: 16px;
+            height: 16px;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            padding: 10px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <button class="header-btn" onclick="window.location.href='index.html'"><i class="fas fa-arrow-left"></i></button>
+        <h1>
+            <span><i class="fas fa-clipboard-list"></i> Tarefas</span>
+            <span class="house-subtitle" id="house-name-display">Carregando...</span>
+        </h1>
+        <div style="width: 32px;"></div> </header>
+
+    <div class="container" id="container-tarefas">
+        </div>
+
+    <div class="bottom-bar">
+        <button id="btn-add-task" class="fab"><i class="fas fa-plus"></i> Nova Tarefa</button>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, onValue, push, update, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        // Substitua pelas suas credenciais se não estiverem puxando sozinhas
+        const firebaseConfig = {
+            apiKey: "AIzaSyAI-dHKJYJVOHknaQCWaNsKlRiLTmdWNTg",
+            authDomain: "lista-de-compras-e744f.firebaseapp.com",
+            databaseURL: "https://lista-de-compras-e744f-default-rtdb.firebaseio.com",
+            projectId: "lista-de-compras-e744f",
+            storageBucket: "lista-de-compras-e744f.firebasestorage.app",
+            messagingSenderId: "839320575020",
+            appId: "1:839320575020:web:b58a4470506688a1418589",
+            measurementId: "G-G17ZN6YWGZ"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        const currentHouseCode = localStorage.getItem('houseCode');
+        const userName = localStorage.getItem('userName');
+        
+        let houseMembers = [];
+        let todasTarefas = {};
+
+        // Redireciona pro hub se não estiver logado
+        if (!currentHouseCode || !userName) {
+            window.location.href = 'index.html';
+        }
+
+        // Sons
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            if (type === 'click') {
+                osc.type = 'sine'; osc.frequency.setValueAtTime(800, now); osc.frequency.exponentialRampToValueAtTime(300, now + 0.05);
+                gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+            } else if (type === 'success') {
+                osc.type = 'sine'; osc.frequency.setValueAtTime(523.25, now); osc.frequency.setValueAtTime(659.25, now + 0.1);
+                gain.gain.setValueAtTime(0, now); gain.gain.linearRampToValueAtTime(0.3, now + 0.05); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+            } else if (type === 'delete') {
+                osc.type = 'triangle'; osc.frequency.setValueAtTime(200, now); osc.frequency.exponentialRampToValueAtTime(50, now + 0.15);
+                gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+            }
+            osc.connect(gain); gain.connect(audioCtx.destination); osc.start(now); osc.stop(now + 0.3);
+        }
+
+        // Carrega dados da casa (Nome e Membros)
+        onValue(ref(db, `casas/${currentHouseCode}`), (snapshot) => {
+            if (snapshot.exists()) {
+                const data = snapshot.val();
+                document.getElementById('house-name-display').innerText = data.nome;
+                houseMembers = data.membros ? Object.keys(data.membros) : [];
+                renderTasks(); // Re-renderiza as sessões caso um membro entre/saia
+            } else {
+                window.location.href = 'index.html';
+            }
+        });
+
+        // Carrega as tarefas
+        onValue(ref(db, `casas/${currentHouseCode}/tarefas`), (snapshot) => {
+            todasTarefas = snapshot.val() || {};
+            renderTasks();
+        });
+
+        // Função para desenhar a tela
+        function renderTasks() {
+            const container = document.getElementById('container-tarefas');
+            container.innerHTML = '';
+
+            if (houseMembers.length === 0) return;
+
+            houseMembers.forEach(membro => {
+                // Filtra as tarefas que pertencem a esse membro
+                const tarefasDoMembro = Object.entries(todasTarefas).filter(([key, task]) => task.responsavel === membro);
+
+                const section = document.createElement('div');
+                section.className = 'member-section';
+                
+                let listHtml = `<ul class="task-list">`;
+                
+                if (tarefasDoMembro.length === 0) {
+                    listHtml += `<div class="empty-state">Nenhuma tarefa para ${membro} 🎉</div>`;
+                } else {
+                    tarefasDoMembro.forEach(([key, task]) => {
+                        // Gera as tags de dias ou tag de "Uma vez"
+                        let badges = '';
+                        if (task.tipo === 'unica') {
+                            badges = `<span class="badge unica">Uma vez só</span>`;
+                        } else if (task.dias && task.dias.length > 0) {
+                            badges = task.dias.map(d => `<span class="badge">${d}</span>`).join('');
+                        } else {
+                            badges = `<span class="badge">Sempre</span>`;
+                        }
+
+                        listHtml += `
+                            <li class="task-card ${task.concluida ? 'completed' : ''}">
+                                <input type="checkbox" class="task-checkbox" 
+                                    ${task.concluida ? 'checked' : ''} 
+                                    onchange="window.toggleTask('${key}', this.checked)">
+                                <div class="task-info">
+                                    <span class="task-name">${task.nome}</span>
+                                    <div class="task-meta">${badges}</div>
+                                </div>
+                                <button class="btn-delete-task" onclick="window.deleteTask('${key}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </li>
+                        `;
+                    });
+                }
+                
+                listHtml += `</ul>`;
+
+                section.innerHTML = `
+                    <div class="member-header">
+                        <i class="fas fa-user-circle"></i> ${membro} ${membro === userName ? '(Você)' : ''}
+                    </div>
+                    ${listHtml}
+                `;
+                
+                container.appendChild(section);
+            });
+        }
+
+        // Alternar conclusão da tarefa
+        window.toggleTask = (key, isChecked) => {
+            playSound('click');
+            update(ref(db, `casas/${currentHouseCode}/tarefas/${key}`), {
+                concluida: isChecked
+            });
+        };
+
+        // Deletar tarefa
+        window.deleteTask = (key) => {
+            playSound('click');
+            Swal.fire({
+                title: 'Excluir Tarefa?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#cf6679',
+                confirmButtonText: 'Sim'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    remove(ref(db, `casas/${currentHouseCode}/tarefas/${key}`));
+                    playSound('delete');
+                }
+            });
+        };
+
+        // Adicionar nova tarefa
+        document.getElementById('btn-add-task').addEventListener('click', () => {
+            playSound('click');
+
+            // Cria as opções do Select com base nos membros da casa
+            const optionsMembros = houseMembers.map(m => `<option value="${m}" ${m === userName ? 'selected' : ''}>${m}</option>`).join('');
+
+            Swal.fire({
+                title: 'Nova Tarefa',
+                html: `
+                    <input id="swal-t-nome" class="swal2-input" placeholder="O que precisa ser feito?">
+                    
+                    <select id="swal-t-membro" class="swal2-select" style="width: 80%; max-width: 100%;">
+                        ${optionsMembros}
+                    </select>
+
+                    <div style="text-align: left; margin: 15px 10%; display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" id="swal-t-unica" checked style="width: 20px; height: 20px; accent-color: var(--tarefas-color);">
+                        <label for="swal-t-unica" style="color: var(--text-color);">É só uma vez?</label>
+                    </div>
+
+                    <div id="swal-t-dias" class="days-grid" style="display: none;">
+                        <label><input type="checkbox" value="Seg"> Seg</label>
+                        <label><input type="checkbox" value="Ter"> Ter</label>
+                        <label><input type="checkbox" value="Qua"> Qua</label>
+                        <label><input type="checkbox" value="Qui"> Qui</label>
+                        <label><input type="checkbox" value="Sex"> Sex</label>
+                        <label><input type="checkbox" value="Sáb"> Sáb</label>
+                        <label><input type="checkbox" value="Dom"> Dom</label>
+                    </div>
+                `,
+                didOpen: () => {
+                    // Lógica para mostrar/esconder os dias da semana nativamente
+                    const cbUnica = document.getElementById('swal-t-unica');
+                    const divDias = document.getElementById('swal-t-dias');
+                    
+                    cbUnica.addEventListener('change', (e) => {
+                        if (e.target.checked) {
+                            divDias.style.display = 'none';
+                        } else {
+                            divDias.style.display = 'grid';
+                        }
+                    });
+                },
+                showCancelButton: true,
+                confirmButtonText: 'Criar Tarefa',
+                confirmButtonColor: '#03dac6',
+                preConfirm: () => {
+                    const nome = document.getElementById('swal-t-nome').value;
+                    const responsavel = document.getElementById('swal-t-membro').value;
+                    const unica = document.getElementById('swal-t-unica').checked;
+                    
+                    if (!nome) {
+                        Swal.showValidationMessage('A tarefa precisa de um nome!');
+                        return false;
+                    }
+
+                    let dias = [];
+                    if (!unica) {
+                        // Coleta os dias selecionados nativamente
+                        const checkboxes = document.querySelectorAll('#swal-t-dias input[type="checkbox"]:checked');
+                        checkboxes.forEach(cb => dias.push(cb.value));
+                        
+                        if (dias.length === 0) {
+                            Swal.showValidationMessage('Selecione pelo menos um dia da semana!');
+                            return false;
+                        }
+                    }
+
+                    return { nome, responsavel, tipo: unica ? 'unica' : 'recorrente', dias };
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const t = result.value;
+                    push(ref(db, `casas/${currentHouseCode}/tarefas`), {
+                        nome: t.nome,
+                        responsavel: t.responsavel,
+                        tipo: t.tipo,
+                        dias: t.dias,
+                        concluida: false
+                    });
+                    playSound('success');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
