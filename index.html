@@ -18,6 +18,7 @@
             --error-color: #cf6679;
             --text-color: #e1e1e1;
             --text-muted: #888888;
+            --gold: #ffd700;
         }
 
         * {
@@ -132,24 +133,32 @@
             color: var(--text-color) !important;
             border-radius: 15px !important;
         }
-        .swal2-input {
+        .swal2-input, .swal2-textarea {
             color: var(--text-color) !important;
             background: var(--bg-color) !important;
             border: 1px solid #333 !important;
         }
-        .swal2-input::placeholder { color: var(--text-muted); }
+        .swal2-input::placeholder, .swal2-textarea::placeholder { color: var(--text-muted); }
         
         #main-app { display: none; }
         
-        .member-list { text-align: left; margin-top: 15px; background: var(--bg-color); padding: 10px; border-radius: 8px; }
-        .member-item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #333; align-items: center; }
+        .member-list { text-align: left; margin-top: 15px; background: var(--bg-color); padding: 10px; border-radius: 8px; max-height: 250px; overflow-y: auto; }
+        .member-item { display: flex; justify-content: space-between; padding: 8px 5px; border-bottom: 1px solid #333; align-items: center; transition: background 0.2s; }
+        .member-item:hover { background-color: rgba(255, 255, 255, 0.02); }
+        
+        /* Estilos do Perfil */
+        .profile-img { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid var(--primary-color); margin: 0 auto 10px auto; background: #333; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; color: #666; }
+        .profile-bio { font-style: italic; color: var(--text-muted); font-size: 0.9rem; margin-bottom: 15px; word-break: break-word; }
+        .tags-container { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 10px; }
+        .user-tag { background: rgba(187, 134, 252, 0.15); color: var(--primary-color); padding: 5px 10px; border-radius: 20px; font-size: 0.8rem; border: 1px solid var(--primary-color); display: flex; align-items: center; gap: 5px; }
+        .user-tag.gold { border-color: var(--gold); color: var(--gold); background: rgba(255, 215, 0, 0.1); }
     </style>
 </head>
 <body>
 
     <div id="main-app">
         <header>
-            <div style="width: 32px;"></div> 
+            <button class="header-btn" id="btn-profile"><i class="fas fa-user-circle"></i></button>
             <h1 id="header-title">
                 <span><i class="fas fa-home"></i> Hub da Casa</span>
                 <span class="house-subtitle" id="house-name-display">Carregando...</span>
@@ -200,102 +209,79 @@
         const db = getDatabase(app);
         const messaging = getMessaging(app);
 
-        let userName = localStorage.getItem('userName');
+        let userName = localStorage.getItem('userName'); 
         let currentHouseCode = localStorage.getItem('houseCode');
         let houseData = null;
+        let userData = { exibicao: userName, bio: '', foto: '', tags: ['novato'] };
+
+        const MISSOES = {
+            'novato': { icone: '🌱', nome: 'Novato', desc: 'Criou um perfil no Hub.', especial: false },
+            'proprietario': { icone: '👑', nome: 'Proprietário', desc: 'É dono de uma casa.', especial: true },
+            'hospede': { icone: '🤝', nome: 'Hóspede', desc: 'Participa de uma casa.', especial: false },
+            'expressivo': { icone: '🗣️', nome: 'Expressivo', desc: 'Adicionou uma biografia.', especial: false },
+            'estiloso': { icone: '📸', nome: 'Estiloso', desc: 'Adicionou uma foto de perfil.', especial: false },
+            'camaleao': { icone: '🎭', nome: 'Camaleão', desc: 'Personalizou o nome de exibição.', especial: false },
+            'republica': { icone: '🏘️', nome: 'República', desc: 'Mora numa casa com 3+ membros.', especial: true },
+            'multidao': { icone: '🏟️', nome: 'Multidão', desc: 'Mora numa casa com 5+ membros.', especial: true },
+            'tarefeiro': { icone: '🧹', nome: 'Tarefeiro', desc: 'Completou 10 tarefas (Secreto).', especial: true },
+            'comprador': { icone: '🛒', nome: 'Comprador', desc: 'Fez compras para a casa (Secreto).', especial: false }
+        };
 
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         
         function playSound(type) {
             if (audioCtx.state === 'suspended') audioCtx.resume();
             const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
 
             if (type === 'click') {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(800, now);
-                osc.frequency.exponentialRampToValueAtTime(300, now + 0.05);
-                gain.gain.setValueAtTime(0.3, now);
-                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.start(now);
-                osc.stop(now + 0.05);
+                osc.type = 'sine'; osc.frequency.setValueAtTime(800, now); osc.frequency.exponentialRampToValueAtTime(300, now + 0.05);
+                gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+                osc.start(now); osc.stop(now + 0.05);
             } else if (type === 'success') {
-                const osc1 = audioCtx.createOscillator();
-                const gain1 = audioCtx.createGain();
-                osc1.type = 'sine';
-                osc1.frequency.setValueAtTime(523.25, now);
-                osc1.frequency.setValueAtTime(659.25, now + 0.1);
-                gain1.gain.setValueAtTime(0, now);
-                gain1.gain.linearRampToValueAtTime(0.3, now + 0.05);
-                gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-                osc1.connect(gain1);
-                gain1.connect(audioCtx.destination);
-                osc1.start(now);
-                osc1.stop(now + 0.3);
-            } else if (type === 'delete') {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(200, now);
-                osc.frequency.exponentialRampToValueAtTime(50, now + 0.15);
-                gain.gain.setValueAtTime(0.3, now);
-                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.start(now);
-                osc.stop(now + 0.15);
+                osc.type = 'sine'; osc.frequency.setValueAtTime(523.25, now); osc.frequency.setValueAtTime(659.25, now + 0.1);
+                gain.gain.setValueAtTime(0, now); gain.gain.linearRampToValueAtTime(0.3, now + 0.05); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now); osc.stop(now + 0.3);
+            } else if (type === 'tag') {
+                osc.type = 'triangle'; osc.frequency.setValueAtTime(440, now); osc.frequency.setValueAtTime(880, now + 0.1); osc.frequency.setValueAtTime(1760, now + 0.2);
+                gain.gain.setValueAtTime(0, now); gain.gain.linearRampToValueAtTime(0.2, now + 0.1); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                osc.start(now); osc.stop(now + 0.4);
             }
-        }
-
-        async function configurarNotificacoesPush(code) {
-            if (!("Notification" in window)) {
-                console.log("Este navegador não suporta notificações de sistema.");
-                return;
-            }
-
-            try {
-                const permission = await Notification.requestPermission();
-                if (permission === "granted") {
-                    const registration = await navigator.serviceWorker.register('firebase-messaging-sw.js');
-                    
-                    const tokenAtual = await getToken(messaging, {
-                        serviceWorkerRegistration: registration,
-                        vapidKey: "INSIRA_SUA_CHAVE_VAPID_AQUI"
-                    });
-
-                    if (tokenAtual && userName) {
-                        await set(ref(db, `casas/${code}/tokens_notificacao/${userName}`), tokenAtual);
-                        console.log("Token FCM updated successfully.");
-                    }
-                }
-            } catch (error) {
-                console.error("Erro ao configurar Cloud Messaging:", error);
-            }
+            osc.connect(gain); gain.connect(audioCtx.destination);
         }
 
         async function initApp() {
             if (!userName) {
                 const { value: name } = await Swal.fire({
                     title: 'Bem-vindo ao Hub!',
-                    text: 'Qual o seu nome?',
+                    text: 'Crie seu usuário (sem espaços ou símbolos). Este será seu @ único!',
                     input: 'text',
                     allowOutsideClick: false,
                     confirmButtonText: 'Entrar',
                     confirmButtonColor: '#bb86fc',
                     inputValidator: (value) => {
                         if (!value) return 'Você precisa digitar um nome!';
-                        if (/[.$#[\]]/.test(value)) return 'O nome não pode conter pontos ou símbolos especiais';
+                        if (/[.$#[\]\s]/.test(value)) return 'O usuário não pode conter espaços ou símbolos especiais';
                     }
                 });
                 if (name) {
                     userName = name.trim();
                     localStorage.setItem('userName', userName);
+                    await set(ref(db, `usuarios/${userName}`), { exibicao: userName, bio: '', foto: '', tags: ['novato'] });
                     playSound('success');
                 }
             }
+
+            onValue(ref(db, `usuarios/${userName}`), (snapshot) => {
+                if(snapshot.exists()) {
+                    userData = snapshot.val();
+                    if(!userData.tags) userData.tags = ['novato'];
+                    checkMissions(); 
+                } else {
+                    set(ref(db, `usuarios/${userName}`), userData);
+                }
+            });
 
             if (!currentHouseCode) {
                 await showHouseSelection();
@@ -304,10 +290,44 @@
             }
         }
 
+        window.unlockTag = async function(tagId) {
+            if (!userData.tags.includes(tagId) && MISSOES[tagId]) {
+                const novasTags = [...userData.tags, tagId];
+                await update(ref(db, `usuarios/${userName}`), { tags: novasTags });
+                
+                playSound('tag');
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'success',
+                    title: `Nova Tag Desbloqueada: ${MISSOES[tagId].icone} ${MISSOES[tagId].nome}`,
+                    showConfirmButton: false,
+                    timer: 4000,
+                    background: '#1e1e1e',
+                    color: '#bb86fc'
+                });
+            }
+        }
+
+        function checkMissions() {
+            if(userData.bio && userData.bio.length > 0) window.unlockTag('expressivo');
+            if(userData.foto && userData.foto.length > 0) window.unlockTag('estiloso');
+            if(userData.exibicao !== userName) window.unlockTag('camaleao');
+            
+            if(houseData) {
+                if(houseData.dono === userName) window.unlockTag('proprietario');
+                else window.unlockTag('hospede');
+
+                const qtdMembros = Object.keys(houseData.membros).length;
+                if(qtdMembros >= 3) window.unlockTag('republica');
+                if(qtdMembros >= 5) window.unlockTag('multidao');
+            }
+        }
+
         async function showHouseSelection() {
             const result = await Swal.fire({
-                title: `Olá, ${userName}!`,
-                text: 'Você precisa de uma casa activa para aceder ao Hub.',
+                title: `Olá, ${userData.exibicao}!`,
+                text: 'Você precisa de uma casa ativa para acessar o Hub.',
                 showCancelButton: true,
                 confirmButtonText: '<i class="fas fa-home"></i> Criar Casa',
                 cancelButtonText: '<i class="fas fa-sign-in-alt"></i> Entrar com Código',
@@ -316,138 +336,233 @@
                 allowOutsideClick: false
             });
 
-            if (result.isConfirmed) {
-                await createNewHouse();
-            } else if (result.dismiss === Swal.DismissReason.cancel) {
-                await joinHouse();
-            }
+            if (result.isConfirmed) await createNewHouse();
+            else if (result.dismiss === Swal.DismissReason.cancel) await joinHouse();
         }
 
         async function createNewHouse() {
             const { value: houseName } = await Swal.fire({
-                title: 'Nova Casa',
-                input: 'text',
-                inputPlaceholder: 'Nome da Casa (ex: Minha Casa)',
-                showCancelButton: true,
-                confirmButtonColor: '#bb86fc',
-                inputValidator: (value) => {
-                    if (!value) return 'A casa precisa de um nome!';
-                }
+                title: 'Nova Casa', input: 'text', inputPlaceholder: 'Nome da Casa', showCancelButton: true, confirmButtonColor: '#bb86fc', inputValidator: (value) => { if (!value) return 'A casa precisa de um nome!'; }
             });
+            if (!houseName) { await showHouseSelection(); return; }
 
-            if (!houseName) {
-                await showHouseSelection();
-                return;
-            }
-
-            try {
-                const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-                
-                await set(ref(db, `casas/${code}`), {
-                    nome: houseName.trim(),
-                    dono: userName,
-                    membros: { [userName]: true }
-                });
-
-                currentHouseCode = code;
-                localStorage.setItem('houseCode', code);
-                playSound('success');
-                
-                await Swal.fire({
-                    title: 'Casa Criada!',
-                    html: `O código da sua casa é: <b style="color:var(--secondary-color); font-size:1.4rem;">${code}</b>`,
-                    icon: 'success',
-                    confirmButtonColor: '#bb86fc'
-                });
-                
-                loadHouse(code);
-            } catch (error) {
-                console.error("Erro Firebase:", error);
-                await Swal.fire({
-                    title: 'Erro de Permissão',
-                    text: 'Não foi possível salvar no Firebase. Verifique as Regras do Banco de Dados.',
-                    icon: 'error'
-                });
-                await showHouseSelection();
-            }
+            const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+            await set(ref(db, `casas/${code}`), { nome: houseName.trim(), dono: userName, membros: { [userName]: true } });
+            
+            currentHouseCode = code; localStorage.setItem('houseCode', code); playSound('success');
+            await Swal.fire('Casa Criada!', `O código é: <b style="color:var(--secondary-color); font-size:1.4rem;">${code}</b>`, 'success');
+            loadHouse(code);
         }
 
         async function joinHouse() {
             const { value: codeInput } = await Swal.fire({
-                title: 'Entrar em uma Casa',
-                input: 'text',
-                inputPlaceholder: 'Digite o código da casa',
-                showCancelButton: true,
-                confirmButtonColor: '#03dac6',
-                inputValidator: (value) => {
-                    if (!value) return 'O código não pode ser vazio!';
-                }
+                title: 'Entrar', input: 'text', inputPlaceholder: 'Código da casa', showCancelButton: true, confirmButtonColor: '#03dac6', inputValidator: (value) => { if (!value) return 'O código não pode ser vazio!'; }
             });
-
-            if (!codeInput) {
-                await showHouseSelection();
-                return;
-            }
+            if (!codeInput) { await showHouseSelection(); return; }
 
             const code = codeInput.trim().toUpperCase();
-
-            try {
-                const houseRef = ref(db, `casas/${code}`);
-                const snapshot = await get(houseRef);
-                
-                if (snapshot.exists()) {
-                    await update(ref(db, `casas/${code}/membros`), {
-                        [userName]: true
-                    });
-                    
-                    currentHouseCode = code;
-                    localStorage.setItem('houseCode', currentHouseCode);
-                    playSound('success');
-                    loadHouse(currentHouseCode);
-                } else {
-                    await Swal.fire('Não encontrada', 'Nenhuma casa foi encontrada com este código.', 'error');
-                    await showHouseSelection();
-                }
-            } catch (error) {
-                console.error("Erro Firebase:", error);
-                await Swal.fire({
-                    title: 'Erro de Conexão',
-                    text: 'Falha ao buscar dados no Firebase.',
-                    icon: 'error'
-                });
-                await showHouseSelection();
+            const snapshot = await get(ref(db, `casas/${code}`));
+            if (snapshot.exists()) {
+                await update(ref(db, `casas/${code}/membros`), { [userName]: true });
+                currentHouseCode = code; localStorage.setItem('houseCode', currentHouseCode); playSound('success'); loadHouse(currentHouseCode);
+            } else {
+                await Swal.fire('Erro', 'Nenhuma casa encontrada.', 'error'); await showHouseSelection();
             }
         }
 
         function loadHouse(code) {
             document.getElementById('main-app').style.display = 'block';
-            configurarNotificacoesPush(code);
-
             onValue(ref(db, `casas/${code}`), (snapshot) => {
                 if (!snapshot.exists()) {
-                    localStorage.removeItem('houseCode');
-                    currentHouseCode = null;
-                    document.getElementById('main-app').style.display = 'none';
-                    Swal.fire('Aviso', 'Esta casa foi excluída pelo proprietário.', 'info').then(() => {
-                        window.location.reload();
-                    });
-                    return;
+                    localStorage.removeItem('houseCode'); currentHouseCode = null; document.getElementById('main-app').style.display = 'none';
+                    Swal.fire('Aviso', 'A casa foi excluída.', 'info').then(() => window.location.reload()); return;
                 }
-                
                 houseData = snapshot.val();
                 document.getElementById('house-name-display').innerText = `${houseData.nome} (Cód: ${code})`;
-                
                 if (!houseData.membros || !houseData.membros[userName]) {
-                    localStorage.removeItem('houseCode');
-                    Swal.fire('Aviso', 'Você foi removido desta casa.', 'warning').then(() => window.location.reload());
+                    localStorage.removeItem('houseCode'); Swal.fire('Aviso', 'Você foi removido desta casa.', 'warning').then(() => window.location.reload());
                 }
-            });
-            
-            document.querySelectorAll('.hub-card').forEach(card => {
-                card.addEventListener('click', () => playSound('click'));
+                checkMissions(); 
             });
         }
 
+        // --- SISTEMA DE PERFIL --- //
+        document.getElementById('btn-profile').addEventListener('click', () => {
+            playSound('click');
+            abrirPerfil(userName, true);
+        });
+
+        window.abrirPerfil = async function(targetUserName, isMe) {
+            Swal.showLoading();
+            const snap = await get(ref(db, `usuarios/${targetUserName}`));
+            if(!snap.exists() && !isMe) {
+                Swal.fire('Ops', 'Usuário não encontrado!', 'error');
+                return;
+            }
+            
+            const pData = isMe ? userData : snap.val();
+            const tagsHtml = pData.tags ? pData.tags.map(t => {
+                const m = MISSOES[t];
+                return m ? `<span class="user-tag ${m.especial ? 'gold' : ''}" title="${m.desc}">${m.icone} ${m.nome}</span>` : '';
+            }).join('') : '';
+
+            const fotoHtml = pData.foto ? `<img src="${pData.foto}" class="profile-img">` : `<div class="profile-img"><i class="fas fa-user"></i></div>`;
+
+            let htmlContent = `
+                ${fotoHtml}
+                <h2 style="margin:0; color:var(--primary-color)">${pData.exibicao}</h2>
+                <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">@${targetUserName}</div>
+                <p class="profile-bio">"${pData.bio || 'Nenhuma bio definida ainda.'}"</p>
+                <div style="text-align:left; margin-top:15px; background:var(--bg-color); padding:10px; border-radius:8px;">
+                    <b style="font-size:0.9rem;">Tags & Conquistas:</b>
+                    <div class="tags-container">${tagsHtml || '<span class="user-tag">Sem tags</span>'}</div>
+                </div>
+                <div style="margin-top:20px; display:flex; gap:10px; flex-direction:column;">
+                    ${isMe ? `
+                        <button onclick="window.editarPerfil()" style="background:var(--secondary-color); color:#000; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:bold;">
+                            <i class="fas fa-edit"></i> Editar Perfil
+                        </button>
+                    ` : ''}
+                    <button onclick="window.pesquisarPerfil()" style="background:transparent; border:1px solid var(--text-muted); color:var(--text-color); padding:10px; border-radius:8px; cursor:pointer;">
+                        <i class="fas fa-search"></i> Procurar outro Usuário
+                    </button>
+                </div>
+            `;
+
+            Swal.fire({ html: htmlContent, showConfirmButton: false, showCloseButton: true });
+        };
+
+        window.editarPerfil = async function() {
+            playSound('click');
+            Swal.fire({
+                title: 'Editar Perfil',
+                html: `
+                    <div style="text-align:left; margin-bottom:10px;">
+                        <label style="font-size:0.85rem; color:var(--text-muted)">Nome de Exibição</label>
+                        <input id="swal-input-nome" class="swal2-input" style="width:100%; margin:5px 0 0 0;" placeholder="Nome visível" value="${userData.exibicao}">
+                    </div>
+                    <div style="text-align:left; margin-bottom:10px;">
+                        <label style="font-size:0.85rem; color:var(--text-muted)">Foto de Perfil (Selecione um Arquivo)</label>
+                        <input id="swal-input-foto" type="file" accept="image/*" class="swal2-input" style="width:100%; margin:5px 0 0 0; padding-top:6px;">
+                    </div>
+                    <div style="text-align:left; margin-bottom:10px;">
+                        <label style="font-size:0.85rem; color:var(--text-muted)">Sua Biografia</label>
+                        <textarea id="swal-input-bio" class="swal2-textarea" style="width:100%; margin:5px 0 0 0; height:70px;" placeholder="Conte algo sobre você...">${userData.bio || ''}</textarea>
+                    </div>
+                `,
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonColor: '#bb86fc',
+                cancelButtonText: 'Cancelar',
+                confirmButtonText: 'Salvar',
+                preConfirm: () => {
+                    const fileInput = document.getElementById('swal-input-foto');
+                    const file = fileInput.files[0];
+                    const exibicao = document.getElementById('swal-input-nome').value.trim() || userName;
+                    const bio = document.getElementById('swal-input-bio').value.trim();
+
+                    return new Promise((resolve) => {
+                        if (file) {
+                            if (file.size > 2 * 1024 * 1024) { // Limite de 2MB seguro para o RTDB
+                                Swal.showValidationMessage('A imagem deve ter menos de 2MB!');
+                                resolve(false);
+                                return;
+                            }
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                                resolve({ exibicao, bio, foto: reader.result });
+                            };
+                            reader.readAsDataURL(file);
+                        } else {
+                            resolve({ exibicao, bio, foto: userData.foto || '' });
+                        }
+                    });
+                }
+            }).then((result) => {
+                if (result.isConfirmed && result.value) {
+                    const formValues = result.value;
+                    update(ref(db, `usuarios/${userName}`), { 
+                        exibicao: formValues.exibicao, 
+                        foto: formValues.foto, 
+                        bio: formValues.bio 
+                    }).then(() => {
+                        playSound('success');
+                        abrirPerfil(userName, true);
+                    });
+                }
+            });
+        };
+
+        window.pesquisarPerfil = async function() {
+            playSound('click');
+            const { value: searchName } = await Swal.fire({
+                title: 'Pesquisar Usuário',
+                input: 'text',
+                inputPlaceholder: 'Digite parte do nome ou do @...',
+                showCancelButton: true,
+                confirmButtonText: '<i class="fas fa-search"></i> Buscar',
+                confirmButtonColor: '#bb86fc'
+            });
+
+            if(searchName) {
+                Swal.showLoading();
+                const snapshot = await get(ref(db, 'usuarios'));
+                if (!snapshot.exists()) {
+                    Swal.fire('Ops', 'Nenhum usuário cadastrado no sistema.', 'error');
+                    return;
+                }
+                
+                const todosUsuarios = snapshot.val();
+                const termo = searchName.trim().toLowerCase();
+                const resultados = [];
+
+                // Pesquisa aproximada (Substrings no arroba ou nome de exibição)
+                Object.keys(todosUsuarios).forEach(uname => {
+                    const uData = todosUsuarios[uname];
+                    const exibicao = (uData.exibicao || '').toLowerCase();
+                    const username = uname.toLowerCase();
+                    
+                    if (exibicao.includes(termo) || username.includes(termo)) {
+                        resultados.push({ username: uname, ...uData });
+                    }
+                });
+
+                if (resultados.length === 0) {
+                    Swal.fire('Nenhum resultado', 'Não encontramos ninguém correspondente.', 'info');
+                } else if (resultados.length === 1) {
+                    abrirPerfil(resultados[0].username, resultados[0].username === userName);
+                } else {
+                    // Renderiza lista dinâmica de aproximações encontradas
+                    let listaHtml = `<p style="font-size:0.9rem; color:var(--text-muted); margin-bottom:10px;">Vários resultados encontrados:</p><div class="member-list">`;
+                    resultados.forEach(u => {
+                        const fotoPerfil = u.foto ? `<img src="${u.foto}" style="width:35px; height:35px; border-radius:50%; object-fit:cover; margin-right:10px; border: 1px solid var(--primary-color);">` : `<i class="fas fa-user-circle" style="font-size:35px; margin-right:10px; color:var(--text-muted);"></i>`;
+                        listaHtml += `
+                            <div class="member-item" onclick="Swal.close(); window.abrirPerfil('${u.username}', '${u.username}' === '${userName}')" style="cursor:pointer; padding:10px 5px;">
+                                <div style="display:flex; align-items:center;">
+                                    ${fotoPerfil}
+                                    <div style="text-align:left;">
+                                        <strong style="color:var(--primary-color); font-size:0.95rem;">${u.exibicao}</strong><br>
+                                        <span style="font-size:0.75rem; color:var(--text-muted);">@${u.username}</span>
+                                    </div>
+                                </div>
+                                <i class="fas fa-chevron-right" style="color:var(--text-muted); font-size:0.8rem;"></i>
+                            </div>
+                        `;
+                    });
+                    listaHtml += `</div>`;
+
+                    Swal.fire({
+                        title: 'Resultados da Busca',
+                        html: listaHtml,
+                        showConfirmButton: false,
+                        showCloseButton: true
+                    });
+                }
+            }
+        }
+        // --- FIM SISTEMA DE PERFIL --- //
+
+        // --- CONFIGURAÇÕES DA CASA --- //
         document.getElementById('btn-settings').addEventListener('click', () => {
             playSound('click');
             const isOwner = houseData.dono === userName;
@@ -458,98 +573,52 @@
                     <b>Membros:</b><br>
                     ${Object.keys(houseData.membros).map(m => `
                         <div class="member-item">
-                            <span>${m} ${m === houseData.dono ? '(Dono)' : ''}</span>
-                            ${isOwner && m !== userName ? `<button class="icon-btn delete" onclick="window.removeMember('${m}')" style="font-size:0.9rem; padding:0; background:none; border:none; color:var(--error-color); cursor:pointer;"><i class="fas fa-times"></i></button>` : ''}
+                            <span onclick="window.abrirPerfil('${m}', '${m}' === '${userName}')" style="cursor:pointer; color:var(--primary-color); font-weight:bold;">@${m} ${m === houseData.dono ? '👑' : ''}</span>
+                            ${isOwner && m !== userName ? `<button onclick="window.removeMember('${m}')" style="font-size:0.9rem; background:none; border:none; color:var(--error-color); cursor:pointer;"><i class="fas fa-times"></i></button>` : ''}
                         </div>
                     `).join('')}
                 </div>
                 ${isOwner ? `
                 <div style="margin-top: 15px;">
-                    <button onclick="Swal.close(); window.deleteHouse()" style="background-color: var(--error-color); color: white; border: none; padding: 10px; border-radius: 8px; cursor: pointer; width: 100%; font-size: 1rem; font-weight: bold; margin-top: 10px;">
+                    <button onclick="Swal.close(); window.deleteHouse()" style="background-color: var(--error-color); color: white; border: none; padding: 10px; border-radius: 8px; cursor: pointer; width: 100%; font-size: 1rem; font-weight: bold;">
                         <i class="fas fa-trash-alt"></i> Sair e Excluir a Casa
                     </button>
-                </div>
-                ` : ''}
+                </div>` : ''}
             `;
 
             Swal.fire({
-                title: 'Configurações da Casa',
-                html: htmlContent,
-                showDenyButton: isOwner,
-                showCancelButton: true,
-                confirmButtonText: isOwner ? 'Renomear Casa' : 'Sair da Casa',
-                denyButtonText: isOwner ? 'Adicionar Membro' : '',
-                cancelButtonText: 'Fechar',
-                confirmButtonColor: isOwner ? '#bb86fc' : '#cf6679',
-                denyButtonColor: '#03dac6'
+                title: 'Configurações', html: htmlContent, showDenyButton: isOwner, showCancelButton: true,
+                confirmButtonText: isOwner ? 'Renomear Casa' : 'Sair da Casa', denyButtonText: isOwner ? 'Adicionar Membro' : '',
+                cancelButtonText: 'Fechar', confirmButtonColor: isOwner ? '#bb86fc' : '#cf6679', denyButtonColor: '#03dac6'
             }).then((result) => {
-                if (result.isConfirmed) {
-                    if (isOwner) window.renameHouse();
-                    else window.leaveHouse();
-                } else if (result.isDenied && isOwner) {
-                    window.addMemberManual();
-                }
+                if (result.isConfirmed) { if (isOwner) window.renameHouse(); else window.leaveHouse(); } 
+                else if (result.isDenied && isOwner) window.addMemberManual();
             });
         });
 
         window.renameHouse = async () => {
-            const { value: novoNome } = await Swal.fire({
-                title: 'Renomear',
-                input: 'text',
-                inputValue: houseData.nome,
-                showCancelButton: true,
-                confirmButtonColor: '#bb86fc'
-            });
+            const { value: novoNome } = await Swal.fire({ title: 'Renomear', input: 'text', inputValue: houseData.nome, showCancelButton: true, confirmButtonColor: '#bb86fc' });
             if (novoNome) update(ref(db, `casas/${currentHouseCode}`), { nome: novoNome });
         };
 
         window.addMemberManual = async () => {
-            const { value: novoMembro } = await Swal.fire({
-                title: 'Adicionar Membro',
-                text: 'Digite o nome exato da pessoa para adicioná-la.',
-                input: 'text',
-                showCancelButton: true,
-                confirmButtonColor: '#bb86fc'
-            });
+            const { value: novoMembro } = await Swal.fire({ title: 'Adicionar Membro', text: 'Digite o @ exato da pessoa.', input: 'text', showCancelButton: true, confirmButtonColor: '#bb86fc' });
             if (novoMembro) {
-                if (/[.$#[\]]/.test(novoMembro)) {
-                    Swal.fire('Nome inválido', 'O nome do membro não pode conter símbolos', 'error');
-                    return;
-                }
+                if (/[.$#[\]\s]/.test(novoMembro)) { Swal.fire('Nome inválido', 'O nome não pode conter símbolos ou espaços.', 'error'); return; }
                 update(ref(db, `casas/${currentHouseCode}/membros`), { [novoMembro.trim()]: true });
                 playSound('success');
             }
         };
 
-        window.removeMember = (membro) => {
-            remove(ref(db, `casas/${currentHouseCode}/membros/${membro}`));
-            playSound('delete');
-            Swal.close();
-        };
+        window.removeMember = (membro) => { remove(ref(db, `casas/${currentHouseCode}/membros/${membro}`)); playSound('delete'); Swal.close(); };
 
-        window.leaveHouse = () => {
-            remove(ref(db, `casas/${currentHouseCode}/membros/${userName}`));
-            localStorage.removeItem('houseCode');
-            window.location.reload();
-        };
+        window.leaveHouse = () => { remove(ref(db, `casas/${currentHouseCode}/membros/${userName}`)); localStorage.removeItem('houseCode'); window.location.reload(); };
 
         window.deleteHouse = () => {
             Swal.fire({
-                title: 'Você tem certeza?',
-                text: 'Como você é o dono, sair irá EXCLUIR a casa permanentemente e remover todos os membros atuais das listas. Essa ação não pode ser desfeita!',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#cf6679',
-                cancelButtonColor: '#888888',
-                confirmButtonText: 'Sim, excluir casa!',
-                cancelButtonText: 'Cancelar'
+                title: 'Você tem certeza?', text: 'Isso irá EXCLUIR a casa e remover todos os membros. Não pode ser desfeito!', icon: 'warning', showCancelButton: true, confirmButtonColor: '#cf6679', confirmButtonText: 'Sim, excluir!'
             }).then((result) => {
-                if (result.isConfirmed) {
-                    remove(ref(db, `casas/${currentHouseCode}`));
-                    localStorage.removeItem('houseCode');
-                    playSound('delete');
-                    window.location.reload();
-                }
+                if (result.isConfirmed) { remove(ref(db, `casas/${currentHouseCode}`)); localStorage.removeItem('houseCode'); window.location.reload(); }
             });
         };
 
