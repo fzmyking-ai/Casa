@@ -112,11 +112,10 @@
             color: var(--secondary-color);
         }
         
-        /* Cores específicas para os ícones baseadas na funcionalidade */
-        .hub-card.compras i { color: #bb86fc; } /* Roxo para compras */
-        .hub-card.tarefas i { color: #03dac6; } /* Ciano para tarefas */
-        .hub-card.financas i { color: #cf6679; } /* Vermelho/Rosa para finanças (exemplo futuro) */
-        .hub-card.membros i { color: #ffb86c; } /* Laranja para membros (exemplo futuro) */
+        .hub-card.compras i { color: #bb86fc; } 
+        .hub-card.tarefas i { color: #03dac6; } 
+        .hub-card.financas i { color: #cf6679; } 
+        .hub-card.membros i { color: #ffb86c; } 
 
         .hub-card span {
             font-size: 1.1rem;
@@ -128,7 +127,6 @@
             to { opacity: 1; transform: scale(1); }
         }
 
-        /* Modais do SweetAlert */
         .swal2-popup {
             background: var(--surface-color) !important;
             color: var(--text-color) !important;
@@ -143,7 +141,6 @@
         
         #main-app { display: none; }
         
-        /* Lista de Membros no Modal */
         .member-list { text-align: left; margin-top: 15px; background: var(--bg-color); padding: 10px; border-radius: 8px; }
         .member-item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #333; align-items: center; }
     </style>
@@ -152,7 +149,8 @@
 
     <div id="main-app">
         <header>
-            <div style="width: 32px;"></div> <h1 id="header-title">
+            <div style="width: 32px;"></div> 
+            <h1 id="header-title">
                 <span><i class="fas fa-home"></i> Hub da Casa</span>
                 <span class="house-subtitle" id="house-name-display">Carregando...</span>
             </h1>
@@ -185,6 +183,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, onValue, update, remove, get, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getMessaging, getToken } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAI-dHKJYJVOHknaQCWaNsKlRiLTmdWNTg",
@@ -199,6 +198,7 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
+        const messaging = getMessaging(app);
 
         let userName = localStorage.getItem('userName');
         let currentHouseCode = localStorage.getItem('houseCode');
@@ -250,6 +250,32 @@
             }
         }
 
+        async function configurarNotificacoesPush(code) {
+            if (!("Notification" in window)) {
+                console.log("Este navegador não suporta notificações de sistema.");
+                return;
+            }
+
+            try {
+                const permission = await Notification.requestPermission();
+                if (permission === "granted") {
+                    const registration = await navigator.serviceWorker.register('firebase-messaging-sw.js');
+                    
+                    const tokenAtual = await getToken(messaging, {
+                        serviceWorkerRegistration: registration,
+                        vapidKey: "INSIRA_SUA_CHAVE_VAPID_AQUI"
+                    });
+
+                    if (tokenAtual && userName) {
+                        await set(ref(db, `casas/${code}/tokens_notificacao/${userName}`), tokenAtual);
+                        console.log("Token FCM updated successfully.");
+                    }
+                }
+            } catch (error) {
+                console.error("Erro ao configurar Cloud Messaging:", error);
+            }
+        }
+
         async function initApp() {
             if (!userName) {
                 const { value: name } = await Swal.fire({
@@ -281,7 +307,7 @@
         async function showHouseSelection() {
             const result = await Swal.fire({
                 title: `Olá, ${userName}!`,
-                text: 'Você precisa de uma casa ativa para acessar o Hub.',
+                text: 'Você precisa de uma casa activa para aceder ao Hub.',
                 showCancelButton: true,
                 confirmButtonText: '<i class="fas fa-home"></i> Criar Casa',
                 cancelButtonText: '<i class="fas fa-sign-in-alt"></i> Entrar com Código',
@@ -395,7 +421,8 @@
 
         function loadHouse(code) {
             document.getElementById('main-app').style.display = 'block';
-            
+            configurarNotificacoesPush(code);
+
             onValue(ref(db, `casas/${code}`), (snapshot) => {
                 if (!snapshot.exists()) {
                     localStorage.removeItem('houseCode');
@@ -416,7 +443,6 @@
                 }
             });
             
-            // Adiciona listener de clique e som para os cards
             document.querySelectorAll('.hub-card').forEach(card => {
                 card.addEventListener('click', () => playSound('click'));
             });
@@ -437,6 +463,13 @@
                         </div>
                     `).join('')}
                 </div>
+                ${isOwner ? `
+                <div style="margin-top: 15px;">
+                    <button onclick="Swal.close(); window.deleteHouse()" style="background-color: var(--error-color); color: white; border: none; padding: 10px; border-radius: 8px; cursor: pointer; width: 100%; font-size: 1rem; font-weight: bold; margin-top: 10px;">
+                        <i class="fas fa-trash-alt"></i> Sair e Excluir a Casa
+                    </button>
+                </div>
+                ` : ''}
             `;
 
             Swal.fire({
@@ -500,8 +533,27 @@
             window.location.reload();
         };
 
-        initApp();
+        window.deleteHouse = () => {
+            Swal.fire({
+                title: 'Você tem certeza?',
+                text: 'Como você é o dono, sair irá EXCLUIR a casa permanentemente e remover todos os membros atuais das listas. Essa ação não pode ser desfeita!',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#cf6679',
+                cancelButtonColor: '#888888',
+                confirmButtonText: 'Sim, excluir casa!',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    remove(ref(db, `casas/${currentHouseCode}`));
+                    localStorage.removeItem('houseCode');
+                    playSound('delete');
+                    window.location.reload();
+                }
+            });
+        };
 
+        initApp();
     </script>
 </body>
 </html>
