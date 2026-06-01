@@ -19,6 +19,7 @@
             --text-color: #e1e1e1;
             --text-muted: #888888;
             --gold: #ffd700;
+            --alert-color: #ff5722; /* Cor do pulso de notificação */
         }
 
         * {
@@ -29,7 +30,6 @@
             -webkit-tap-highlight-color: transparent;
         }
 
-        /* Garante ocupação total da tela sem rolagem desnecessária */
         body {
             background-color: var(--bg-color);
             color: var(--text-color);
@@ -78,7 +78,6 @@
 
         .header-btn:hover { color: var(--primary-color); }
 
-        /* Container principal flexível */
         #main-app { 
             display: none; 
             flex-direction: column;
@@ -86,12 +85,11 @@
             width: 100%;
         }
 
-        /* Centralização perfeita dos Cards eliminando o espaço vazio */
         .container {
             padding: 20px;
             max-width: 500px;
             width: 100%;
-            margin: auto; /* Truque mágico para centralizar na vertical e horizontal */
+            margin: auto; 
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 18px;
@@ -113,7 +111,8 @@
             cursor: pointer;
             border: 1px solid rgba(255, 255, 255, 0.03);
             animation: fadeIn 0.4s ease-out forwards;
-            aspect-ratio: 1 / 1; /* Mantém os botões em formato quadrado perfeito */
+            aspect-ratio: 1 / 1; 
+            position: relative; /* Necessário para posicionar a bolinha de notificação */
         }
 
         .hub-card:hover {
@@ -121,6 +120,27 @@
             box-shadow: 0 8px 16px rgba(0,0,0,0.4);
             background-color: #232323;
         }
+
+        /* ----- ESTILO DA NOTIFICAÇÃO PULSANTE ----- */
+        .badge-pulse {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 14px;
+            height: 14px;
+            background-color: var(--alert-color);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--alert-color);
+            animation: pulseAlert 1.5s infinite;
+            display: none; /* Escondido por padrão */
+        }
+
+        @keyframes pulseAlert {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 87, 34, 0.7); }
+            70% { transform: scale(1.2); box-shadow: 0 0 0 8px rgba(255, 87, 34, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 87, 34, 0); }
+        }
+        /* ------------------------------------------ */
 
         .hub-card i {
             font-size: 2.8rem;
@@ -179,22 +199,26 @@
         </header>
 
         <div class="container" id="hub-container">
-            <a href="listadecompras.html" class="hub-card compras">
+            <a href="listadecompras.html" class="hub-card compras" onclick="marcarComoVisto('compras')">
+                <div class="badge-pulse" id="badge-compras"></div>
                 <i class="fas fa-shopping-basket"></i>
                 <span>Lista de Compras</span>
             </a>
             
-            <a href="tarefas.html" class="hub-card tarefas">
+            <a href="tarefas.html" class="hub-card tarefas" onclick="marcarComoVisto('tarefas')">
+                <div class="badge-pulse" id="badge-tarefas"></div>
                 <i class="fas fa-clipboard-list"></i>
                 <span>Tarefas da Casa</span>
             </a>
             
-            <a href="erro.html" class="hub-card financas">
+            <a href="erro.html" class="hub-card financas" onclick="marcarComoVisto('financas')">
+                <div class="badge-pulse" id="badge-financas"></div>
                 <i class="fas fa-wallet"></i>
                 <span>Finanças</span>
             </a>
             
-            <a href="chat.html" class="hub-card membros">
+            <a href="chat.html" class="hub-card membros" onclick="marcarComoVisto('chat')">
+                <div class="badge-pulse" id="badge-chat"></div>
                 <i class="fas fa-comments"></i>
                 <span>Chat da Casa</span>
             </a>
@@ -225,6 +249,9 @@
         let currentHouseCode = localStorage.getItem('houseCode');
         let houseData = null;
         let userData = { exibicao: userName, bio: '', foto: '', tags: ['novato'] };
+
+        // Variável global para guardar os dados mais recentes do DB
+        window.dadosAtuaisModulos = {};
 
         const MISSOES = {
             'novato': { icone: '🌱', nome: 'Novato', desc: 'Criou um perfil no Hub.', especial: false },
@@ -383,7 +410,7 @@
         }
 
         function loadHouse(code) {
-            document.getElementById('main-app').style.display = 'flex'; /* Corrigido de block para flex */
+            document.getElementById('main-app').style.display = 'flex';
             onValue(ref(db, `casas/${code}`), (snapshot) => {
                 if (!snapshot.exists()) {
                     localStorage.removeItem('houseCode'); currentHouseCode = null; document.getElementById('main-app').style.display = 'none';
@@ -396,7 +423,62 @@
                 }
                 checkMissions(); 
             });
+
+            // Inicia o sistema de notificações para esta casa
+            iniciarMonitoramentoNotificacoes(code);
         }
+
+        // --- SISTEMA DE NOTIFICAÇÕES (Sem alterar outros HTMLs) --- //
+        function iniciarMonitoramentoNotificacoes(code) {
+            // Presumimos os caminhos onde os dados ficam salvos no Firebase
+            // Se as outras páginas usarem nomes diferentes (ex: 'lista' em vez de 'compras'), 
+            // basta alterar o "path" abaixo.
+            const modulos = [
+                { id: 'compras', path: `casas/${code}/compras` },
+                { id: 'tarefas', path: `casas/${code}/tarefas` },
+                { id: 'financas', path: `casas/${code}/financas` },
+                { id: 'chat', path: `casas/${code}/chat` }
+            ];
+
+            modulos.forEach(mod => {
+                onValue(ref(db, mod.path), (snapshot) => {
+                    let currentDataStr = "";
+                    if (snapshot.exists()) {
+                        currentDataStr = JSON.stringify(snapshot.val()); // Transforma os dados numa string para comparar
+                    }
+                    
+                    // Salva os dados atuais na memória para quando o usuário clicar no botão
+                    window.dadosAtuaisModulos[mod.id] = currentDataStr;
+                    
+                    // Pega a última "foto" que salvamos localmente
+                    const lastSeenStr = localStorage.getItem(`visto_${mod.id}_${code}`);
+                    const badge = document.getElementById(`badge-${mod.id}`);
+
+                    if (badge) {
+                        if (lastSeenStr !== null && lastSeenStr !== currentDataStr) {
+                            // Tem dado novo! Mostra o pulso.
+                            badge.style.display = 'block'; 
+                        } else {
+                            // Não tem mudança ou é a primeira vez.
+                            badge.style.display = 'none'; 
+                            if (lastSeenStr === null) {
+                                // Se for a primeira vez abrindo o app, salva o estado atual como "visto"
+                                localStorage.setItem(`visto_${mod.id}_${code}`, currentDataStr);
+                            }
+                        }
+                    }
+                });
+            });
+        }
+
+        // Essa função é chamada quando o usuário clica em um dos cards
+        window.marcarComoVisto = function(modId) {
+            if (window.dadosAtuaisModulos[modId] !== undefined) {
+                // Atualiza a "foto" local para os dados de agora, apagando a notificação
+                localStorage.setItem(`visto_${modId}_${currentHouseCode}`, window.dadosAtuaisModulos[modId]);
+            }
+        };
+        // --- FIM SISTEMA DE NOTIFICAÇÕES --- //
 
         // --- SISTEMA DE PERFIL --- //
         document.getElementById('btn-profile').addEventListener('click', () => {
